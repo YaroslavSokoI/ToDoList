@@ -2,30 +2,31 @@ const list = document.getElementById('todo-list')
 const itemCountSpan = document.getElementById('item-count')
 const uncheckedCountSpan = document.getElementById('unchecked-count')
 
-let todos = [
-  { id: 1, text: "Вивчити HTML", done: true },
-  { id: 2, text: "Вивчити CSS", done: true },
-  { id: 3, text: "Вивчити JavaScript", done: false }
-]
+let todos = JSON.parse(localStorage.getItem('todos')) || []
 
-function generateId() {
+const saveTodos = () => {
+  localStorage.setItem('todos', JSON.stringify(todos))
+}
+
+const generateId = () => {
   return todos.length ? Math.max(...todos.map(t => t.id)) + 1 : 1
 }
 
-function newTodo() {
+const newTodo = () => {
   const text = prompt("Введіть нову справу:")
   if (text) {
     todos.push({
       id: generateId(),
-      text: text,
+      text,
       done: false
     })
+    saveTodos()
     render()
     updateCounter()
   }
 }
 
-function renderTodo(todo) {
+const renderTodo = (todo) => {
   const checkedAttr = todo.done ? 'checked' : ''
   const labelClass = todo.done ? 'text-success text-decoration-line-through' : ''
 
@@ -38,25 +39,27 @@ function renderTodo(todo) {
   `
 }
 
-function render() {
+const render = () => {
   list.innerHTML = todos.map(renderTodo).join('')
 }
 
-function updateCounter() {
+const updateCounter = () => {
   itemCountSpan.textContent = todos.length
   uncheckedCountSpan.textContent = todos.filter(todo => !todo.done).length
 }
 
-function deleteTodo(id) {
+const deleteTodo = (id) => {
   todos = todos.filter(todo => todo.id !== id)
+  saveTodos()
   render()
   updateCounter()
 }
 
-function checkTodo(id) {
+const checkTodo = (id) => {
   const todo = todos.find(t => t.id === id)
   if (todo) {
     todo.done = !todo.done
+    saveTodos()
     render()
     updateCounter()
   }
