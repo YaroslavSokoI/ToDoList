@@ -1,69 +1,97 @@
 const list = document.getElementById('todo-list')
 const itemCountSpan = document.getElementById('item-count')
 const uncheckedCountSpan = document.getElementById('unchecked-count')
+const statusDiv = document.getElementById('status')
 
-let todos = JSON.parse(localStorage.getItem('todos')) || []
+const FIREBASE_URL = 'https://to-do-list-20290-default-rtdb.europe-west1.firebasedatabase.app/todos'
 
-const saveTodos = () => {
-  localStorage.setItem('todos', JSON.stringify(todos))
+let todos = {}
+
+const setStatus = (msg, isError = false) => {
+  statusDiv.textContent = msg
+  statusDiv.className = isError ? 'text-danger' : 'text-secondary'
 }
 
-const generateId = () => {
-  return todos.length ? Math.max(...todos.map(t => t.id)) + 1 : 1
+const addTodo = async (text) => {
+  setStatus("Завантаження...")
+  const response = await fetch(`${FIREBASE_URL}.json`, {
+    method: 'POST',
+    body: JSON.stringify({ text, done: false }),
+    headers: { 'Content-Type': 'application/json' }
+  })
+  const data = await response.json()
+  if (data.name) {
+    todos[data.name] = { text, done: false }
+    render()
+    updateCounter()
+    setStatus("Справу додано!")
+  } else {
+    setStatus("Помилка при додаванні!", true)
+  }
 }
 
-const newTodo = () => {
-  const text = prompt("Введіть нову справу:")
-  if (text) {
-    todos.push({
-      id: generateId(),
-      text,
-      done: false
+const fetchTodos = async () => {
+  setStatus("Завантаження...")
+  try {
+    const response = await fetch(`${FIREBASE_URL}.json`)
+    todos = await response.json() || {}
+    render()
+    updateCounter()
+    setStatus("Готово")
+  } catch (err) {
+    setStatus("Помилка при завантаженні!", true)
+  }
+}
+
+const deleteTodo = async (id) => {
+  await fetch(`${FIREBASE_URL}/${id}.json`, { method: 'DELETE' })
+  delete todos[id]
+  render()
+  updateCounter()
+}
+
+const checkTodo = async (id) => {
+  const todo = todos[id]
+  if (todo) {
+    todo.done = !todo.done
+    await fetch(`${FIREBASE_URL}/${id}.json`, {
+      method: 'PATCH',
+      body: JSON.stringify({ done: todo.done }),
+      headers: { 'Content-Type': 'application/json' }
     })
-    saveTodos()
     render()
     updateCounter()
   }
 }
 
-const renderTodo = (todo) => {
+const newTodo = () => {
+  const text = prompt("Введіть нову справу:")
+  if (text) addTodo(text)
+}
+
+const renderTodo = (id, todo) => {
   const checkedAttr = todo.done ? 'checked' : ''
   const labelClass = todo.done ? 'text-success text-decoration-line-through' : ''
-
   return `
     <li class="list-group-item">
-      <input type="checkbox" class="form-check-input me-2" id="${todo.id}" ${checkedAttr} onChange="checkTodo(${todo.id})" />
-      <label for="${todo.id}"><span class="${labelClass}">${todo.text}</span></label>
-      <button class="btn btn-danger btn-sm float-end" onClick="deleteTodo(${todo.id})">delete</button>
+      <input type="checkbox" class="form-check-input me-2" id="${id}" ${checkedAttr} onChange="checkTodo('${id}')" />
+      <label for="${id}"><span class="${labelClass}">${todo.text}</span></label>
+      <button class="btn btn-danger btn-sm float-end" onClick="deleteTodo('${id}')">delete</button>
     </li>
   `
 }
 
 const render = () => {
-  list.innerHTML = todos.map(renderTodo).join('')
+  list.innerHTML = Object.entries(todos)
+      .map(([id, todo]) => renderTodo(id, todo))
+      .join('')
 }
 
 const updateCounter = () => {
-  itemCountSpan.textContent = todos.length
-  uncheckedCountSpan.textContent = todos.filter(todo => !todo.done).length
+  const all = Object.keys(todos).length
+  const unchecked = Object.values(todos).filter(todo => !todo.done).length
+  itemCountSpan.textContent = all
+  uncheckedCountSpan.textContent = unchecked
 }
 
-const deleteTodo = (id) => {
-  todos = todos.filter(todo => todo.id !== id)
-  saveTodos()
-  render()
-  updateCounter()
-}
-
-const checkTodo = (id) => {
-  const todo = todos.find(t => t.id === id)
-  if (todo) {
-    todo.done = !todo.done
-    saveTodos()
-    render()
-    updateCounter()
-  }
-}
-
-render()
-updateCounter()
+fetchTodos()
